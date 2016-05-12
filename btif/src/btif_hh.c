@@ -33,6 +33,8 @@
 
 #define LOG_TAG "BTIF_HH"
 
+#include <cutils/log.h>
+
 #include "bta_api.h"
 #include "bta_hh_api.h"
 #include "bd.h"
@@ -248,6 +250,23 @@ static void toggle_os_keylockstates(int fd, int changedlockstates)
 
 /*******************************************************************************
 **
+** Function         create_pbuf
+**
+** Description      Helper function to create p_buf for send_data or set_report
+**
+*******************************************************************************/
+static BT_HDR *create_pbuf(UINT16 len)
+{
+    UINT16 buflen = (UINT16) (len + BTA_HH_MIN_OFFSET + sizeof(BT_HDR));
+    if (buflen < len) {
+      android_errorWriteWithInfoLog(0x534e4554, "28672558", -1, NULL, 0);
+      return NULL;
+    }
+    return GKI_getbuf(buflen);
+}
+
+/*******************************************************************************
+**
 ** Function         update_keyboard_lockstates
 **
 ** Description      Sends a report to the keyboard to set the lock states of keys
@@ -266,8 +285,7 @@ static void update_keyboard_lockstates(btif_hh_device_t *p_dev)
         GKI_freebuf(p_dev->p_buf);
     }
     /* Get SetReport buffer */
-    p_dev->p_buf = GKI_getbuf((UINT16) (len + BTA_HH_MIN_OFFSET +
-        sizeof(BT_HDR)));
+    p_dev->p_buf = create_pbuf(len);
     if (p_dev->p_buf != NULL) {
         p_dev->p_buf->len = len;
         p_dev->p_buf->offset = BTA_HH_MIN_OFFSET;
@@ -729,7 +747,7 @@ void btif_hh_setreport(btif_hh_device_t *p_dev, bthh_report_type_t r_type, UINT1
     if (p_dev->p_buf != NULL) {
         GKI_freebuf(p_dev->p_buf);
     }
-    p_dev->p_buf = GKI_getbuf((UINT16) (len + BTA_HH_MIN_OFFSET + sizeof(BT_HDR)));
+    p_dev->p_buf = create_pbuf(len);
     if (p_dev->p_buf == NULL) {
         APPL_TRACE_ERROR2("%s: Error, failed to allocate RPT buffer, len = %d", __FUNCTION__, len);
         return;
@@ -1618,7 +1636,7 @@ static bt_status_t set_report (bt_bdaddr_t *bd_addr, bthh_report_type_t reportTy
         if (p_dev->p_buf != NULL) {
             GKI_freebuf(p_dev->p_buf);
         }
-        p_dev->p_buf = GKI_getbuf((UINT16) (len + BTA_HH_MIN_OFFSET + sizeof(BT_HDR)));
+        p_dev->p_buf = create_pbuf(len);
         if (p_dev->p_buf == NULL) {
             BTIF_TRACE_ERROR2("%s: Error, failed to allocate RPT buffer, len = %d", __FUNCTION__, len);
             return BT_STATUS_FAIL;
@@ -1685,7 +1703,7 @@ static bt_status_t send_data (bt_bdaddr_t *bd_addr, char* data)
         if (p_dev->p_buf != NULL) {
             GKI_freebuf(p_dev->p_buf);
         }
-        p_dev->p_buf = GKI_getbuf((UINT16) (len + BTA_HH_MIN_OFFSET + sizeof(BT_HDR)));
+        p_dev->p_buf = create_pbuf(len);
         if (p_dev->p_buf == NULL) {
             BTIF_TRACE_ERROR2("%s: Error, failed to allocate RPT buffer, len = %d", __FUNCTION__, len);
             return BT_STATUS_FAIL;
