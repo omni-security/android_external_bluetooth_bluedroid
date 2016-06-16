@@ -228,7 +228,7 @@ static int skt_connect(struct a2dp_stream_out *out, char *path)
             ANDROID_SOCKET_NAMESPACE_ABSTRACT, SOCK_STREAM) < 0)
     {
         ERROR("failed to connect (%s)", strerror(errno));
-        close(skt_fd);
+        TEMP_FAILURE_RETRY(close(skt_fd));
         return -1;
     }
 
@@ -257,12 +257,12 @@ static int skt_write(int fd, const void *p, size_t len)
     /* poll for 500 ms */
 
     /* send time out */
-    if (poll(&pfd, 1, 500) == 0)
+    if (TEMP_FAILURE_RETRY(poll(&pfd, 1, 500)) == 0)
         return 0;
 
     ts_log("skt_write", len, NULL);
 
-    if ((sent = send(fd, p, len, MSG_NOSIGNAL)) == -1)
+    if ((sent = TEMP_FAILURE_RETRY(send(fd, p, len, MSG_NOSIGNAL))) == -1)
     {
         ERROR("write failed with errno=%d\n", errno);
         return -1;
@@ -298,7 +298,7 @@ static int a2dp_command(struct a2dp_stream_out *out, char cmd)
     DEBUG("A2DP COMMAND %s", dump_a2dp_ctrl_event(cmd));
 
     /* send command */
-    if (send(out->ctrl_fd, &cmd, 1, MSG_NOSIGNAL) == -1)
+    if (TEMP_FAILURE_RETRY(send(out->ctrl_fd, &cmd, 1, MSG_NOSIGNAL)) == -1)
     {
         ERROR("cmd failed (%s)", strerror(errno));
         skt_disconnect(out->ctrl_fd);
@@ -307,7 +307,7 @@ static int a2dp_command(struct a2dp_stream_out *out, char cmd)
     }
 
     /* wait for ack byte */
-    if (recv(out->ctrl_fd, &ack, 1, MSG_NOSIGNAL) < 0)
+    if (TEMP_FAILURE_RETRY(recv(out->ctrl_fd, &ack, 1, MSG_NOSIGNAL)) < 0)
     {
         ERROR("ack failed (%s)", strerror(errno));
         skt_disconnect(out->ctrl_fd);
@@ -504,7 +504,7 @@ static ssize_t out_write(struct audio_stream_out *stream, const void* buffer,
 
             DEBUG("emulate a2dp write delay (%d us)", us_delay);
 
-            usleep(us_delay);
+            TEMP_FAILURE_RETRY(usleep(us_delay));
             pthread_mutex_unlock(&out->lock);
             return -1;
         }
@@ -886,12 +886,12 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
                 break;
 
             ERROR("error : a2dp not ready, wait 250 ms and retry");
-            usleep(250000);
+            TEMP_FAILURE_RETRY(usleep(250000));
             skt_disconnect(out->ctrl_fd);
         }
 
         /* ctrl channel not ready, wait a bit */
-        usleep(250000);
+        TEMP_FAILURE_RETRY(usleep(250000));
     }
 
     if (out->ctrl_fd == AUDIO_SKT_DISCONNECTED)
